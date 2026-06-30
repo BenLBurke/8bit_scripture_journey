@@ -7,25 +7,27 @@
   const canvas = document.getElementById("screen");
   const ctx = canvas.getContext("2d");
 
-  // Render the canvas internally at RS x the logical 256x224 resolution. All art
-  // is still authored in 256-space (via a scaled transform), but text is drawn
-  // at full native resolution so glyphs stay crisp and easy to read.
+  // Logical resolution is 256x224. All art is authored in that space and drawn
+  // through a scaled transform; text is drawn at the canvas's full pixel density.
   //
-  // RS must account for the display's device pixel ratio: a Retina screen packs
-  // ~2-3 physical pixels into every CSS pixel, so if the canvas backing store is
-  // smaller than the physical pixel area it gets upscaled (blurry). We size the
-  // backing store to the *physical* pixels covered by the canvas's CSS box.
-  let RS = 4;
+  // The key to sharp output: the canvas backing store must hold EXACTLY as many
+  // pixels as the screen physically paints into the canvas's CSS box. If it holds
+  // fewer (low-DPI sizing) the browser upscales -> blur; if the count is rounded
+  // so it doesn't match (fractional DPI like Windows 125%/150% or browser zoom)
+  // the browser still rescales with smoothing -> blur. So we set the backing
+  // store to round(cssSize * devicePixelRatio) and derive a (possibly
+  // fractional) render scale from it, giving a true 1:1 mapping at any zoom/DPI.
+  let RS = 3;
   const baseTransform = () => ctx.setTransform(RS, 0, 0, RS, 0, 0);
   function resize() {
     const dpr = window.devicePixelRatio || 1;
-    // CSS displays the canvas at up to 768px wide (256 * 3); find its real width.
-    const cssW = canvas.getBoundingClientRect().width || 768;
-    // Physical pixels per logical (256-wide) pixel, with a sane floor/ceiling.
-    RS = Math.max(3, Math.min(8, Math.round((cssW * dpr) / W)));
-    canvas.width = W * RS;   // W/H come from backgrounds.js (256 x 224)
-    canvas.height = H * RS;
-    ctx.imageSmoothingEnabled = false; // re-assert after resize (art stays blocky)
+    const rect = canvas.getBoundingClientRect();
+    const cssW = rect.width || 768;
+    const pxW = Math.max(W, Math.round(cssW * dpr)); // exact physical pixels
+    RS = pxW / W;                                    // device px per logical px
+    canvas.width = pxW;
+    canvas.height = Math.round(H * RS);
+    ctx.imageSmoothingEnabled = false; // art stays blocky; text is drawn sharp
   }
   resize();
   // Re-evaluate when the window changes or the canvas is dragged to another
@@ -63,16 +65,19 @@
   const CHAPTERS = ["joseph", "david"];
 
   // ------------------------------------------------------------------ text
-  // Text is rendered under the identity transform at (size * RS) px so it is
-  // drawn at the real pixel density of the canvas — sharp instead of upscaled.
+  // Text is rendered under the identity transform at (size * RS) px — i.e. at the
+  // canvas's real pixel density — and snapped to whole device pixels so glyph
+  // edges land on the pixel grid. Bold weight reads better at small sizes.
+  const fontStr = (size) => `bold ${Math.max(8, Math.round(size * RS))}px ${FONT}`;
   function text(str, x, y, { size = 8, color = "#e8e6d0", align = "left", shadow = true } = {}) {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.font = `${size * RS}px ${FONT}`;
+    ctx.font = fontStr(size);
     ctx.textAlign = align;
     ctx.textBaseline = "top";
-    const dx = x * RS, dy = y * RS;
-    if (shadow) { ctx.fillStyle = "#000"; ctx.fillText(str, dx + RS, dy + RS); }
+    const dx = Math.round(x * RS), dy = Math.round(y * RS);
+    const off = Math.max(1, Math.round(RS / 2));
+    if (shadow) { ctx.fillStyle = "#000"; ctx.fillText(str, dx + off, dy + off); }
     ctx.fillStyle = color;
     ctx.fillText(str, dx, dy);
     ctx.restore();
@@ -81,7 +86,7 @@
   function wrap(str, maxW, size) {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.font = `${size * RS}px ${FONT}`;
+    ctx.font = fontStr(size);
     const limit = maxW * RS;
     const words = str.split(" ");
     const lines = [];

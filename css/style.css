@@ -38,10 +38,10 @@ body {
 
 #screen {
   display: block;
-  width: 768px;             /* internal render is 768x672 (256x224 @ 3x) */
-  height: 672px;            /* so on desktop it's a crisp 1:1 mapping     */
-  max-width: 92vw;
-  max-height: 70vh;
+  width: 768px;             /* CSS display size; the JS sizes the backing  */
+  max-width: 92vw;          /* store to the exact physical pixels for 1:1  */
+  aspect-ratio: 256 / 224;  /* keep height tied to width (no distortion)   */
+  height: auto;
   background: #000;
   border: 2px solid #000;
 }
