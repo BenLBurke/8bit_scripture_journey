@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>8-Bit Scripture Journey</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="frame">
+    <canvas id="screen" width="256" height="224"></canvas>
+
+    <!-- On-screen controls for touch / mobile -->
+    <div id="touch-controls" aria-hidden="true">
+      <div class="pad">
+        <button class="tb" data-key="ArrowUp">▲</button>
+        <div class="row">
+          <button class="tb" data-key="ArrowLeft">◀</button>
+          <button class="tb" data-key="ArrowRight">▶</button>
+        </div>
+        <button class="tb" data-key="ArrowDown">▼</button>
+      </div>
+      <div class="ab">
+        <button class="tb big" data-key="Enter">A</button>
+        <button class="tb big" data-key="Escape">B</button>
+      </div>
+    </div>
+  </div>
+
+  <p id="hint">
+    Move: <b>Arrow Keys</b> &nbsp;•&nbsp; Confirm: <b>Enter / Z</b> &nbsp;•&nbsp;
+    Back: <b>Esc / X</b> &nbsp;•&nbsp; Mute: <b>M</b>
+  </p>
+
+  <!-- load order matters: data + assets before the engine -->
+  <script src="js/audio.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/backgrounds.js"></script>
+  <script src="js/stories.js"></script>
+  <script src="js/engine.js"></script>
+</body>
+</html>
