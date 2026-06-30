@@ -10,10 +10,31 @@
   // Render the canvas internally at RS x the logical 256x224 resolution. All art
   // is still authored in 256-space (via a scaled transform), but text is drawn
   // at full native resolution so glyphs stay crisp and easy to read.
-  const RS = 3;
-  canvas.width = W * RS;   // W/H come from backgrounds.js (256 x 224)
-  canvas.height = H * RS;
+  //
+  // RS must account for the display's device pixel ratio: a Retina screen packs
+  // ~2-3 physical pixels into every CSS pixel, so if the canvas backing store is
+  // smaller than the physical pixel area it gets upscaled (blurry). We size the
+  // backing store to the *physical* pixels covered by the canvas's CSS box.
+  let RS = 4;
   const baseTransform = () => ctx.setTransform(RS, 0, 0, RS, 0, 0);
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    // CSS displays the canvas at up to 768px wide (256 * 3); find its real width.
+    const cssW = canvas.getBoundingClientRect().width || 768;
+    // Physical pixels per logical (256-wide) pixel, with a sane floor/ceiling.
+    RS = Math.max(3, Math.min(8, Math.round((cssW * dpr) / W)));
+    canvas.width = W * RS;   // W/H come from backgrounds.js (256 x 224)
+    canvas.height = H * RS;
+    ctx.imageSmoothingEnabled = false; // re-assert after resize (art stays blocky)
+  }
+  resize();
+  // Re-evaluate when the window changes or the canvas is dragged to another
+  // monitor with a different pixel density.
+  window.addEventListener("resize", resize);
+  if (window.matchMedia) {
+    window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
+      .addEventListener?.("change", resize);
+  }
 
   const FONT = '"Courier New", monospace';
   const SAVE_KEY = "scripture_journey_save_v1";
