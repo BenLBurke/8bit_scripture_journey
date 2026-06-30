@@ -6,7 +6,14 @@
 (() => {
   const canvas = document.getElementById("screen");
   const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = false;
+
+  // Render the canvas internally at RS x the logical 256x224 resolution. All art
+  // is still authored in 256-space (via a scaled transform), but text is drawn
+  // at full native resolution so glyphs stay crisp and easy to read.
+  const RS = 3;
+  canvas.width = W * RS;   // W/H come from backgrounds.js (256 x 224)
+  canvas.height = H * RS;
+  const baseTransform = () => ctx.setTransform(RS, 0, 0, RS, 0, 0);
 
   const FONT = '"Courier New", monospace';
   const SAVE_KEY = "scripture_journey_save_v1";
@@ -35,28 +42,36 @@
   const CHAPTERS = ["joseph", "david"];
 
   // ------------------------------------------------------------------ text
-  function setFont(px) { ctx.font = `${px}px ${FONT}`; }
-
+  // Text is rendered under the identity transform at (size * RS) px so it is
+  // drawn at the real pixel density of the canvas — sharp instead of upscaled.
   function text(str, x, y, { size = 8, color = "#e8e6d0", align = "left", shadow = true } = {}) {
-    setFont(size);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = `${size * RS}px ${FONT}`;
     ctx.textAlign = align;
     ctx.textBaseline = "top";
-    if (shadow) { ctx.fillStyle = "#000"; ctx.fillText(str, x + 1, y + 1); }
+    const dx = x * RS, dy = y * RS;
+    if (shadow) { ctx.fillStyle = "#000"; ctx.fillText(str, dx + RS, dy + RS); }
     ctx.fillStyle = color;
-    ctx.fillText(str, x, y);
+    ctx.fillText(str, dx, dy);
+    ctx.restore();
   }
 
   function wrap(str, maxW, size) {
-    setFont(size);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = `${size * RS}px ${FONT}`;
+    const limit = maxW * RS;
     const words = str.split(" ");
     const lines = [];
     let cur = "";
     for (const w of words) {
       const test = cur ? cur + " " + w : w;
-      if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
+      if (ctx.measureText(test).width > limit && cur) { lines.push(cur); cur = w; }
       else cur = test;
     }
     if (cur) lines.push(cur);
+    ctx.restore();
     return lines;
   }
 
@@ -96,21 +111,21 @@
   }
 
   function drawDialogue(speaker, body) {
-    const x = 8, y = 156, w = 240, h = 60;
+    const x = 8, y = 154, w = 240, h = 62;
     panel(x, y, w, h);
     if (speaker && speaker !== "Narrator") {
-      const tagW = ctx.measureText ? Math.max(40, speaker.length * 6 + 10) : 60;
-      panel(x + 6, y - 9, tagW, 11, "#3a2e10", "#e0b020");
-      text(speaker, x + 11, y - 7, { size: 8, color: "#ffe08a" });
+      const tagW = Math.max(42, speaker.length * 6 + 12);
+      panel(x + 6, y - 11, tagW, 13, "#3a2e10", "#e0b020");
+      text(speaker, x + 11, y - 8, { size: 9, color: "#ffe08a" });
     }
-    const lines = wrap(body, w - 16, 8);
-    lines.slice(0, 5).forEach((ln, i) => text(ln, x + 8, y + 6 + i * 10, { size: 8 }));
+    const lines = wrap(body, w - 16, 9);
+    lines.slice(0, 5).forEach((ln, i) => text(ln, x + 8, y + 7 + i * 10, { size: 9 }));
   }
 
   function drawHUD() {
     const c = STORIES[game.chapterKey];
-    text(c.title, 8, 6, { size: 8, color: c.color });
-    text("FAITH " + game.faith, 248, 6, { size: 8, color: "#ffe08a", align: "right" });
+    text(c.title, 8, 5, { size: 9, color: c.color });
+    text("FAITH " + game.faith, 248, 5, { size: 9, color: "#ffe08a", align: "right" });
     // beat progress dots
     const total = c.beats.length;
     const dotW = Math.min(4, 200 / total);
@@ -123,26 +138,26 @@
   function drawFact(fact) {
     const x = 18, y = 36, w = 220, h = 150;
     panel(x, y, w, h, "#1a2240", "#5aa0e0");
-    text("DID YOU KNOW?", 128, y + 8, { size: 10, color: "#9ad0ff", align: "center" });
-    text(fact.ref, 128, y + 24, { size: 8, color: "#ffe08a", align: "center" });
-    ctx.fillStyle = "#5aa0e0"; ctx.fillRect(x + 14, y + 36, w - 28, 1);
-    const lines = wrap(fact.text, w - 28, 8);
-    lines.forEach((ln, i) => text(ln, 128, y + 44 + i * 11, { size: 8, align: "center" }));
-    if (blink()) text("[A] Continue", 128, y + h - 14, { size: 8, color: "#9ad0ff", align: "center" });
+    text("DID YOU KNOW?", 128, y + 8, { size: 11, color: "#9ad0ff", align: "center" });
+    text(fact.ref, 128, y + 24, { size: 9, color: "#ffe08a", align: "center" });
+    ctx.fillStyle = "#5aa0e0"; ctx.fillRect(x + 14, y + 38, w - 28, 1);
+    const lines = wrap(fact.text, w - 26, 9);
+    lines.forEach((ln, i) => text(ln, 128, y + 46 + i * 12, { size: 9, align: "center" }));
+    if (blink()) text("[A] Continue", 128, y + h - 14, { size: 9, color: "#9ad0ff", align: "center" });
   }
 
   function drawChoice(beat) {
     const x = 8, y = 150, w = 240, h = 66;
     panel(x, y, w, h);
-    const pl = wrap(beat.choice.prompt, w - 16, 8);
-    pl.forEach((ln, i) => text(ln, x + 8, y + 5 + i * 9, { size: 8, color: "#ffe08a" }));
-    let oy = y + 7 + pl.length * 9;
+    const pl = wrap(beat.choice.prompt, w - 16, 9);
+    pl.forEach((ln, i) => text(ln, x + 8, y + 5 + i * 10, { size: 9, color: "#ffe08a" }));
+    let oy = y + 8 + pl.length * 10;
     beat.choice.options.forEach((opt, i) => {
       const sel = i === game.selIndex;
-      const lines = wrap((sel ? "▶ " : "  ") + opt.label, w - 16, 8);
+      const lines = wrap((sel ? "▶ " : "  ") + opt.label, w - 16, 9);
       lines.forEach((ln, j) => {
-        text(ln, x + 8, oy, { size: 8, color: sel ? "#fff" : "#a8a8b8" });
-        oy += 9;
+        text(ln, x + 8, oy, { size: 9, color: sel ? "#fff" : "#a8a8b8" });
+        oy += 10;
       });
     });
   }
@@ -157,7 +172,7 @@
     text("8-BIT", 128, 40, { size: 22, color: "#e0b020", align: "center" });
     text("SCRIPTURE", 128, 64, { size: 22, color: "#e8e6d0", align: "center" });
     text("JOURNEY", 128, 88, { size: 22, color: "#5aa0e0", align: "center" });
-    text("Stories of Joseph & King David", 128, 116, { size: 8, color: "#c8c8d8", align: "center" });
+    text("Stories of Joseph & King David", 128, 116, { size: 9, color: "#c8c8d8", align: "center" });
     if (blink()) text("PRESS  ENTER", 128, 188, { size: 10, color: "#ffe08a", align: "center" });
   }
 
@@ -433,7 +448,9 @@
     if (game.mode === "minigame" && game.mg) game.mg.update(dt);
 
     // ---- render ----
-    ctx.clearRect(0, 0, W, H);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    baseTransform();
     if (game.mode === "title") { drawTitle(); requestAnimationFrame(frame); return; }
     if (game.mode === "menu") { drawMenu(); requestAnimationFrame(frame); return; }
     if (game.mode === "end") { drawEnd(); requestAnimationFrame(frame); return; }

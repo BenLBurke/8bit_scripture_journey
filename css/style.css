@@ -38,12 +38,10 @@ body {
 
 #screen {
   display: block;
-  width: 768px;             /* 256 * 3 */
-  height: 672px;            /* 224 * 3 */
+  width: 768px;             /* internal render is 768x672 (256x224 @ 3x) */
+  height: 672px;            /* so on desktop it's a crisp 1:1 mapping     */
   max-width: 92vw;
   max-height: 70vh;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
   background: #000;
   border: 2px solid #000;
 }
